@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>J&amp;J Photo Booth</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://prwpbaauvwibdtkwvsot.supabase.co">
+<style>
+  :root { --bg:#0e0a08; --card:#1a1411; --gold:#c9a96e; --cream:#f3e9d8; --muted:#a8977f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--cream); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; min-height:100vh; }
+  header { text-align:center; padding:36px 20px 18px; }
+  .kicker { letter-spacing:.3em; font-size:12px; color:var(--gold); text-transform:uppercase; font-weight:600; }
+  h1 { font-family:Georgia,"Times New Roman",serif; font-weight:normal; font-size:clamp(30px,7vw,48px); margin:10px 0 6px; }
+  .sub { color:var(--muted); font-family:Georgia,serif; font-style:italic; margin:0; }
+  main { max-width:980px; margin:0 auto; padding:10px 18px 60px; }
+  .card { background:var(--card); border-radius:18px; padding:18px; margin:18px 0; }
+  .card h2 { font-family:Georgia,serif; font-weight:normal; margin:0 0 12px; font-size:22px; }
+  img.photo, video { width:100%; border-radius:10px; display:block; background:#000; }
+  .single { max-width:520px; margin:0 auto; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; background:var(--gold); color:var(--bg); font-weight:700; text-decoration:none; border:0; border-radius:40px; padding:14px 22px; font-size:16px; margin-top:12px; width:100%; cursor:pointer; }
+  .btn.ghost { background:transparent; color:var(--cream); border:2px solid var(--gold); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .grid img { width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:8px; cursor:pointer; background:#222; }
+  .msg { text-align:center; color:var(--muted); padding:40px 10px; font-size:17px; line-height:1.5; }
+  .spin { width:34px; height:34px; border:3px solid #333; border-top-color:var(--gold); border-radius:50%; animation:s 1s linear infinite; margin:0 auto 14px; }
+  @keyframes s { to { transform:rotate(360deg) } }
+  .pin { display:flex; flex-direction:column; gap:12px; max-width:340px; margin:30px auto; }
+  input { font-size:22px; padding:14px; border-radius:12px; border:0; text-align:center; letter-spacing:.2em; }
+  .err { color:#ff9a7a; text-align:center; min-height:20px; }
+  .vid { display:grid; grid-template-columns:1fr; gap:10px; }
+  @media (min-width:720px) { .vid { grid-template-columns:1fr 1fr; } }
+  .meta { color:var(--muted); font-size:13px; margin-top:6px; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .meta a { color:var(--gold); }
+  .bar { height:8px; background:#333; border-radius:8px; overflow:hidden; margin-top:10px; display:none; }
+  .bar i { display:block; height:100%; width:0; background:var(--gold); transition:width .2s; }
+  .lb { position:fixed; inset:0; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; flex-direction:column; padding:20px; z-index:9; }
+  .lb img { max-height:78vh; max-width:100%; border-radius:8px; }
+  .lb .row { display:flex; gap:10px; width:min(420px,100%); }
+  footer { text-align:center; color:#6f6252; font-size:12px; padding:20px; letter-spacing:.15em; }
+  footer a { color:inherit; }
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker" id="kicker">J&amp;J Photo Booth</div>
+  <h1 id="title">&nbsp;</h1>
+  <p class="sub" id="sub"></p>
+</header>
+<main id="app"><div class="msg"><div class="spin"></div>Loading…</div></main>
+<div class="lb" id="lb" onclick="if(event.target.id==='lb')closeLb()">
+  <img id="lbImg" alt="">
+  <div class="row"><a class="btn" id="lbDl">Download</a><button class="btn ghost" onclick="closeLb()">Close</button></div>
+</div>
+<footer>J&amp;J WORKSHOP · <a href="https://jandjworkshop.com">jandjworkshop.com</a></footer>
+
+<script>
+const SB = "https://prwpbaauvwibdtkwvsot.supabase.co";
+const KEY = "sb_publishable_ozRSk5bR2aPQlgXSGZ-eCA_GtDG6gdw";
+const q = new URLSearchParams(location.search);
+const app = document.getElementById("app");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pub = (p, dl) => `${SB}/storage/v1/object/public/vb-media/${p}` + (dl ? `?download=${encodeURIComponent(dl)}` : "");
+
+async function rpc(fn, body) {
+  const r = await fetch(`${SB}/rest/v1/rpc/${fn}`, { method:"POST", headers:{ apikey:KEY, "Content-Type":"application/json" }, body:JSON.stringify(body) });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((j && j.message) || `Error ${r.status}`);
+  return j;
+}
+function header(title, honoree, kicker) {
+  document.getElementById("title").textContent = title || "Photo Booth";
+  document.getElementById("sub").textContent = honoree ? `Celebrating ${honoree}` : "";
+  if (kicker) document.getElementById("kicker").textContent = kicker;
+  document.title = (title ? title + " · " : "") + "J&J Photo Booth";
+}
+const fmtTime = t => new Date(t).toLocaleString([], { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+
+// ---------- one guest (QR / email link) ----------
+async function guest(code, tries = 0) {
+  let rows;
+  try { rows = await rpc("vb_guest_session", { p_code: code }); }
+  catch (e) { app.innerHTML = `<div class="msg">Couldn't load that link. ${esc(e.message)}</div>`; return; }
+  const s = rows && rows[0];
+  if (!s || !s.photo_path) {
+    header("Almost there…", "");
+    app.innerHTML = `<div class="msg"><div class="spin"></div>Your pics are still uploading from the booth.<br>This page will refresh by itself.</div>`;
+    if (tries < 60) setTimeout(() => guest(code, tries + 1), 10000);
+    return;
+  }
+  header(s.title, s.honoree, "Your Photo Booth Pics");
+  let h = `<div class="single">
+    <div class="card"><h2>Your photo</h2>
+      <img class="photo" src="${pub(s.photo_path)}" alt="Your photo booth print">
+      <a class="btn" href="${pub(s.photo_path, `photobooth-${code}.jpg`)}">⬇ Download photo</a>
+      <p class="meta"><span>On iPhone: press and hold the photo → Save to Photos</span></p>
+    </div>`;
+  if (s.video_path) {
+    h += `<div class="card"><h2>Your video message</h2>
+      <video src="${pub(s.video_path)}" controls playsinline preload="metadata"></video>
+      <a class="btn" href="${pub(s.video_path, `video-message-${code}.mp4`)}">⬇ Download video</a>
+    </div>`;
+  }
+  h += `<a class="btn ghost" href="?e=${encodeURIComponent(s.event_slug)}">See tonight's whole gallery</a></div>`;
+  app.innerHTML = h;
+}
+
+// ---------- tonight's gallery (photos only) ----------
+let lastCount = -1;
+async function night(slug) {
+  try {
+    const [info, rows] = await Promise.all([rpc("vb_event_info", { p_slug: slug }), rpc("vb_night_gallery", { p_slug: slug })]);
+    if (!info.length) { app.innerHTML = `<div class="msg">This gallery isn't available.</div>`; return; }
+    header(info[0].title, info[0].honoree, "Tonight's Gallery");
+    if (rows.length !== lastCount) {
+      lastCount = rows.length;
+      app.innerHTML = rows.length
+        ? `<p class="msg" style="padding:0 0 14px">${rows.length} photo${rows.length === 1 ? "" : "s"} · tap one to download</p>
+           <div class="grid">${rows.map(r => `<img loading="lazy" src="${pub(r.photo_path)}" data-p="${esc(r.photo_path)}" data-c="${esc(r.code)}" alt="">`).join("")}</div>`
+        : `<div class="msg">No photos yet — go hit the booth! 📸</div>`;
+      app.querySelectorAll(".grid img").forEach(i => i.onclick = () => openLb(i.dataset.p, i.dataset.c));
+    }
+  } catch (e) { if (lastCount < 0) app.innerHTML = `<div class="msg">Couldn't load the gallery. ${esc(e.message)}</div>`; }
+  setTimeout(() => night(slug), 30000);
+}
+function openLb(path, code) {
+  document.getElementById("lbImg").src = pub(path);
+  document.getElementById("lbDl").href = pub(path, `photobooth-${code}.jpg`);
+  document.getElementById("lb").style.display = "flex";
+}
+function closeLb() { document.getElementById("lb").style.display = "none"; }
+
+// ---------- host gallery (everything, PIN) ----------
+async function host(slug) {
+  try {
+    const info = await rpc("vb_event_info", { p_slug: slug });
+    if (!info.length) { app.innerHTML = `<div class="msg">This gallery isn't available.</div>`; return; }
+    header(info[0].title, info[0].honoree, "Host Gallery · Video Messages");
+  } catch (e) { app.innerHTML = `<div class="msg">${esc(e.message)}</div>`; return; }
+  const saved = sessionStorage.getItem("vbpin-" + slug);
+  if (saved) return hostLoad(slug, saved);
+  app.innerHTML = `<form class="pin" id="pf"><p class="msg" style="padding:0">Enter the host PIN you were given.</p>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" required>
+    <button class="btn">Open my videos</button><div class="err" id="perr"></div></form>`;
+  document.getElementById("pf").onsubmit = e => { e.preventDefault(); hostLoad(slug, document.getElementById("pin").value.trim()); };
+}
+let hostRows = [];
+async function hostLoad(slug, pin) {
+  let rows;
+  try { rows = await rpc("vb_host_gallery", { p_slug: slug, p_pin: pin }); }
+  catch (e) {
+    sessionStorage.removeItem("vbpin-" + slug);
+    if (!document.getElementById("pf")) await host(slug);
+    const pe = document.getElementById("perr"); if (pe) pe.textContent = "That PIN didn't work — try again.";
+    return;
+  }
+  try { sessionStorage.setItem("vbpin-" + slug, pin); } catch (_) {}
+  hostRows = rows;
+  const vids = rows.filter(r => r.video_path), pics = rows.filter(r => r.photo_path);
+  let h = `<div class="card"><h2>${vids.length} video message${vids.length === 1 ? "" : "s"} · ${pics.length} photo${pics.length === 1 ? "" : "s"}</h2>
+    <button class="btn" id="zipBtn">⬇ Download everything (.zip)</button>
+    <div class="bar" id="bar"><i></i></div><p class="meta" id="zipMsg"></p></div>`;
+  if (vids.length) {
+    h += `<div class="card"><h2>Video messages</h2><div class="vid">` + vids.map((r, i) => `
+      <div><video src="${pub(r.video_path)}#t=0.5" controls playsinline preload="metadata"></video>
+      <div class="meta"><span>#${i + 1} · ${fmtTime(r.created_at)}${r.video_seconds ? ` · ${r.video_seconds}s` : ""}</span>
+      <a href="${pub(r.video_path, `message-${i + 1}-${r.code}.mp4`)}">Download</a></div></div>`).join("") + `</div></div>`;
+  }
+  if (pics.length) {
+    h += `<div class="card"><h2>Photos</h2><div class="grid">` +
+      pics.map(r => `<img loading="lazy" src="${pub(r.photo_path)}" data-p="${esc(r.photo_path)}" data-c="${esc(r.code)}" alt="">`).join("") + `</div></div>`;
+  }
+  if (!rows.length) h = `<div class="msg">No guests yet. Check back after the party!</div>`;
+  app.innerHTML = h;
+  app.querySelectorAll(".grid img").forEach(i => i.onclick = () => openLb(i.dataset.p, i.dataset.c));
+  const zb = document.getElementById("zipBtn"); if (zb) zb.onclick = zipAll;
+}
+function loadScript(src) {
+  return new Promise((ok, bad) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+}
+async function zipAll() {
+  const btn = document.getElementById("zipBtn"), bar = document.getElementById("bar"), msg = document.getElementById("zipMsg");
+  btn.disabled = true; bar.style.display = "block";
+  try {
+    if (!window.JSZip) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js");
+    const zip = new JSZip();
+    const files = [];
+    hostRows.forEach((r, i) => {
+      const n = String(i + 1).padStart(3, "0");
+      if (r.video_path) files.push([`videos/message-${n}-${r.code}.mp4`, r.video_path]);
+      if (r.photo_path) files.push([`photos/photo-${n}-${r.code}.jpg`, r.photo_path]);
+    });
+    for (let i = 0; i < files.length; i++) {
+      msg.textContent = `Gathering ${i + 1} of ${files.length}…`;
+      const res = await fetch(pub(files[i][1]));
+      if (res.ok) zip.file(files[i][0], await res.blob());
+      bar.firstElementChild.style.width = `${Math.round(((i + 1) / files.length) * 85)}%`;
+    }
+    msg.textContent = "Zipping…";
+    const blob = await zip.generateAsync({ type: "blob", compression: "STORE" }, m => bar.firstElementChild.style.width = `${85 + Math.round(m.percent * 0.15)}%`);
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (document.getElementById("title").textContent || "photobooth").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-") + "-booth.zip";
+    document.body.appendChild(a); a.click(); a.remove();
+    msg.textContent = "Done! Check your downloads.";
+  } catch (e) {
+    msg.textContent = "Zip didn't work on this device — use the Download link under each video instead.";
+  }
+  btn.disabled = false;
+}
+
+if (q.get("s")) guest(q.get("s").toUpperCase());
+else if (q.get("e") && q.has("host")) host(q.get("e"));
+else if (q.get("e")) night(q.get("e"));
+else { header("J&J Photo Booth", ""); app.innerHTML = `<div class="msg">Scan the QR code at the booth to find your photos.<br><br><a class="btn" style="max-width:320px" href="https://jandjworkshop.com">Visit J&amp;J Workshop</a></div>`; }
+</script>
+</body>
+</html>

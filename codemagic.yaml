@@ -1,0 +1,41 @@
+# J&J Video Booth — builds the iPad app and sends it to TestFlight.
+# Uses the same Codemagic integration as the old booth app: an App Store Connect API key named  jj-apple
+workflows:
+  ios-testflight:
+    name: J&J Video Booth (iOS → TestFlight)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: jj-apple
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.jandjworkshop.videobooth
+      xcode: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+      - name: Generate Xcode project
+        script: |
+          set -e
+          xcodegen generate
+          sed -i '' "s/CURRENT_PROJECT_VERSION = 1;/CURRENT_PROJECT_VERSION = ${BUILD_NUMBER};/g" JJVideoBooth.xcodeproj/project.pbxproj
+      - name: Code signing
+        script: xcode-project use-profiles
+      - name: Build
+        script: xcode-project build-ipa --project "JJVideoBooth.xcodeproj" --scheme "JJVideoBooth"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

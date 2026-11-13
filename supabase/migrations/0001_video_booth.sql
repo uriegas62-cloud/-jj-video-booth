@@ -1,0 +1,4 @@
+-- Applied to project prwpbaauvwibdtkwvsot (jjworkshop) on 2026-11-12 as migration "video_booth_core".
+-- See Supabase dashboard → Database → Migrations for the exact SQL.
+-- Tables: vb_settings, vb_events, vb_sessions. Bucket: vb-media (public, jpeg/mp4, 150 MB).
+-- Functions: vb_create_event, vb_list_events, vb_event_info, vb_guest_session, vb_night_gallery, vb_host_gallery.

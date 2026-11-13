@@ -1,0 +1,49 @@
+name: JJVideoBooth
+options:
+  bundleIdPrefix: com.jandjworkshop
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "2"
+targets:
+  JJVideoBooth:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: "J&J Video Booth"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UIViewControllerBasedStatusBarAppearance: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+        NSCameraUsageDescription: "The booth uses the camera to record video messages and take guest photos."
+        NSMicrophoneUsageDescription: "The booth records sound so guests can leave a spoken video message."
+        NSLocalNetworkUsageDescription: "Finds your Wi-Fi photo printer so photos print automatically."
+        NSBonjourServices:
+          - _ipp._tcp
+          - _ipps._tcp
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.jandjworkshop.videobooth
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+schemes:
+  JJVideoBooth:
+    build:
+      targets:
+        JJVideoBooth: all
+    archive:
+      config: Release
